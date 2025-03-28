@@ -1,0 +1,49 @@
+---
+- name: Removal of Disk Monitor Script and Service
+  hosts: production_hosts
+  vars_files:
+    - vault.yml
+  become: yes
+  vars:
+    script_path: /usr/local/bin/disk_monitor.sh
+    service_name: disk_monitor
+    log_file: /var/log/disk_usage.log
+  tasks:
+    - name: Stop the {{ service_name }} service
+      systemd:
+        name: "{{ service_name }}"
+        state: stopped
+      ignore_errors: yes
+
+    - name: Disable the {{ service_name }} service
+      systemd:
+        name: "{{ service_name }}"
+        enabled: no
+      ignore_errors: yes
+
+    - name: Remove the service file
+      file:
+        path: /etc/systemd/system/{{ service_name }}.service
+        state: absent
+
+    - name: Remove the script
+      file:
+        path: "{{ script_path }}"
+        state: absent
+
+    - name: Remove the log file
+      file:
+        path: "{{ log_file }}"
+        state: absent
+
+    - name: Reload systemd after removal
+      systemd:
+        daemon_reload: yes
+
+    - name: Verify that the service is removed
+      systemd:
+        name: "{{ service_name }}"
+        state: stopped
+      check_mode: yes
+      register: service_status
+      failed_when: service_status.state != 'stopped'

@@ -1,0 +1,62 @@
+---
+- name: Deploy Disk Monitor Script
+  hosts: production_hosts
+  become: true
+  vars_files:
+    - vault.yml
+  vars:
+    script_path: /usr/local/bin/disk_monitor.sh
+    service_name: disk_monitor
+    log_file: /var/log/disk_usage.log
+    interval: 60
+    disk: /
+  tasks:
+    - name: Copy disk_monitor.sh
+      copy:
+        src: disk_monitor.sh
+        dest: "{{ script_path }}"
+        mode: "0755"
+      register: script_copy
+
+    - name: Check script copying was success
+      fail:
+        msg: "Failed to copy script to {{ script_path }}"
+      when: script_copy.failed
+
+    - name: Copy disk_monitor.service file
+      template:
+        src: disk_monitor.service
+        dest: /etc/systemd/system/{{ service_name }}.service
+      register: service_copy
+
+    - name: Check service file copy success
+      fail:
+        msg: "Failed to copy service file to /etc/systemd/system/{{ service_name }}.service"
+      when: service_copy.failed
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+
+    - name: Enable {{ service_name }} service
+      systemd:
+        name: "{{ service_name }}"
+        enabled: true
+
+    - name: Start {{ service_name }} service
+      systemd:
+        name: "{{ service_name }}"
+        state: started
+      register: service_start
+
+    - name: Check service started success
+      fail:
+        msg: "Failed to start {{ service_name }} service"
+      when: service_start.failed
+
+    - name: Fetch log file
+      fetch:
+        src: "{{ log_file }}"
+        dest: "./disk_usage_log_{{ inventory_hostname }}"
+      tags:
+        - fetch_log

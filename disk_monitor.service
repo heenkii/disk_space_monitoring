@@ -1,0 +1,13 @@
+[Unit]
+Description=Disk Monitor Service
+After=network.target
+
+[Service]
+ExecStart={{ script_path }} {{ log_file }} {{ interval }} {{ disk }}
+Restart=always
+User=root
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
